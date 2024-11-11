@@ -1,0 +1,5 @@
+adafruit-blinka
+adafruit-circuitpython-hdc302x
+adafruit-circuitpython-scd4x
+adafruit-circuitpython-sgp40
+hidapi
