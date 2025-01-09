@@ -1,7 +1,11 @@
+#
+# SGP40 Air Quality Sensor: https://www.adafruit.com/product/4829
+
 import adafruit_hdc302x
 import adafruit_scd4x
 import adafruit_sgp40
 import board
+import sys
 import time
 from datetime import datetime, timedelta
 from glob import glob
@@ -22,11 +26,13 @@ try:
     hdc302x = adafruit_hdc302x.HDC302x(i2c)
 except errors:
     hdc302x = None
+print('HDC302x:', hdc302x)
 
 try:
     scd4x = adafruit_scd4x.SCD4X(i2c)
 except errors:
     scd4x = None
+    print('SCD4X:', scd4x)
 else:
     print('SCD4X serial number:', ' '.join(hex(i) for i in scd4x.serial_number))
     scd4x.start_periodic_measurement()
@@ -35,14 +41,17 @@ try:
     sgp = adafruit_sgp40.SGP40(i2c)
 except errors:
     sgp = None
+print('SGP40:', sgp)
 
-#delay = timedelta(seconds=2)
-delay = timedelta(minutes=1)
+if len(sys.argv) > 1:            # add argument for quicker debug startup
+    delay = timedelta(seconds=1)
+else:
+    delay = timedelta(minutes=1)
 
 def main():
     dt = datetime.now()
     dt = dt.replace(second=0, microsecond=0)
-    dt += delay * 2
+    dt += delay * 2  # give sensors at least one full minute to warm up
     while True:
         wait_until(dt)
         measurements = list(make_measurements())
@@ -56,15 +65,25 @@ def wait_until(dt):
         time.sleep(delay.total_seconds())
 
 def make_measurements():
+    C = None
+    H = None
     if hdc302x is not None:
-        yield 'F', '%.1f' % celsius_to_fahrenheit(hdc302x.temperature)
-        yield 'H%', '%.1f' % hdc302x.relative_humidity
+        C = hdc302x.temperature
+        H = hdc302x.relative_humidity
+        yield 'F', '%.1f' % celsius_to_fahrenheit(C)
+        yield 'H%', '%.1f' % H
     if scd4x is not None and scd4x.data_ready:
+        C = scd4x.temperature
+        H = scd4x.relative_humidity
         yield 'CO2_ppm', '%d' % scd4x.CO2
-        yield 'F', '%.1f' % celsius_to_fahrenheit(scd4x.temperature)
-        yield 'H%', '%.1f' % scd4x.relative_humidity
+        yield 'F', '%.1f' % celsius_to_fahrenheit(C)
+        yield 'H%', '%.1f' % H
     if sgp is not None:
-        yield 'voc_raw', str(sgp.raw)
+        if (C is not None) and (H is not None):
+            raw = sgp.measure_raw(temperature=C, relative_humidity=H)
+        else:
+            raw = sgp.raw
+        yield 'voc_raw', str(raw)
 
 def celsius_to_fahrenheit(celsius):
     """Converts Celsius to Fahrenheit."""
