@@ -1,6 +1,9 @@
 #!/bin/bash
 #
-# DietPi's default SSH server doesn't do `scp`, so use `cat` and `dd`.
+# DietPi's SSH server doesn't support `scp`, so use `tar` instead.
+
+set -e
+cd "$(readlink -f $(dirname "${BASH_SOURCE[0]}"))"
 
 if [ -z "$1" ]
 then
@@ -10,8 +13,6 @@ fi
 
 for hostname in "$@"
 do
-    for name in crontab recorder.py requirements.txt
-    do
-        cat $name | ssh $hostname dd of=$name
-    done
+    tar cf - crontab recorder.py requirements.txt |
+        ssh $hostname tar xvf -
 done
