@@ -1,0 +1,4 @@
+#!/bin/bash
+
+ssh pi 'ls data-* | tail -1 | xargs tail'
+ssh pi2 'ls data-* | tail -1 | xargs tail'
