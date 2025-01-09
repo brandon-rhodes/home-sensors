@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# DietPi's default SSH server doesn't do `scp`, so use `cat` and `dd`.
+
+if [ -z "$1" ]
+then
+    echo usage: push HOSTNAME
+    exit 2
+fi
+
+for hostname in "$@"
+do
+    for name in crontab recorder.py requirements.txt
+    do
+        cat $name | ssh $hostname dd of=$name
+    done
+done
