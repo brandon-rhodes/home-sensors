@@ -47,3 +47,4 @@ sudo raspi-config nonint do_i2c 0
 """
 
 # ? firmware-misc-nonfree
+# apt install rsync
