@@ -1,25 +1,49 @@
 #
 # SGP40 Air Quality Sensor: https://www.adafruit.com/product/4829
 
-import adafruit_hdc302x
-import adafruit_scd4x
-import adafruit_sgp40
-import board
+import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timedelta
 from glob import glob
 
+fmt = "%Y-%m-%d %H:%M:%S"
+zero = timedelta()
+print('Home Sensor Recorder starting up at', datetime.now().strftime(fmt))
+
+def try_reading(path):          # avoid race condition where file disappears
+    try:
+        return open(path).read()
+    except FileNotFoundError:
+        return ''
+
 matches = len([
     path for path in glob('/proc/[1-9]*/cmdline')
-    if 'python\000recorder.py' in open(path).read()
+    if 'python\000recorder.py' in try_reading(path)
 ])
 if matches > 1:
     exit('Error: recorder.py already running')
 
-zero = timedelta()
+if subprocess.call('lsusb | grep -q MCP2221', shell=True) == 0:
+    print('MCP2221 detected on USB bus')
+    os.environ['BLINKA_MCP2221'] = '1'
+else:
+    print('I2C bus not detected on USB; using built-in I2C')
+
+# These imports must be delayed until BLINKA_MCP2221 is set:
+
+import adafruit_hdc302x
+import adafruit_scd4x
+import adafruit_sgp40
+import board
+
+print('Board:', board.detector.board.id)
+print('Chip:', board.detector.chip.id)
 
 i2c = board.I2C()                 # uses board.SCL and board.SDA
+print('I2C scan:', ' '.join(str(n) for n in sorted(i2c.scan())))
+
 errors = RuntimeError, ValueError # laptop versus Raspberry Pi
 
 try:
