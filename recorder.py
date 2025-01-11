@@ -1,16 +1,13 @@
 #
 # SGP40 Air Quality Sensor: https://www.adafruit.com/product/4829
 
+import io
 import os
 import subprocess
 import sys
 import time
 from datetime import datetime, timedelta
 from glob import glob
-
-fmt = "%Y-%m-%d %H:%M:%S"
-zero = timedelta()
-print('Home Sensor Recorder starting up at', datetime.now().strftime(fmt))
 
 def try_reading(path):          # avoid race condition where file disappears
     try:
@@ -23,7 +20,17 @@ matches = len([
     if 'python\000recorder.py' in try_reading(path)
 ])
 if matches > 1:
-    exit('Error: recorder.py already running')
+    exit('Exiting: recorder.py already running')
+
+def unbuffered(f):
+    return io.TextIOWrapper(open(f.fileno(), 'wb', 0), write_through=True)
+
+sys.stdout = unbuffered(sys.stdout)
+sys.stderr = unbuffered(sys.stderr)
+
+fmt = "%Y-%m-%d %H:%M:%S"
+zero = timedelta()
+print('Home Sensor Recorder starting up at', datetime.now().strftime(fmt))
 
 if subprocess.call('lsusb | grep -q MCP2221', shell=True) == 0:
     print('MCP2221 detected on USB bus')

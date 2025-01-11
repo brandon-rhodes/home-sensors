@@ -1,1 +1,1 @@
-* * * * * BLINKA_MCP2221=1 ./env/bin/python recorder.py >/dev/null
+* * * * * ./env/bin/python recorder.py >>log.recorder 2>&1
