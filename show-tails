@@ -1,4 +1,8 @@
 #!/bin/bash
 
-ssh pi 'ls data-* | tail -1 | xargs tail'
-ssh pi2 'ls data-* | tail -1 | xargs tail'
+for host in basement office
+do
+    echo
+    echo $host
+    ssh $host 'ls data-* | tail -1 | xargs tail'
+done
