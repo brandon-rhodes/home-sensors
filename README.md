@@ -1,169 +1,89 @@
 # home-sensors
 Scripts to collect home environment data with a Raspberry Pi
 
-Debugging checks are here
-https://learn.adafruit.com/circuitpython-libraries-on-any-computer-with-mcp2221/post-install-checks
-so:
+Of the two Adafruit sensors boards I am trying out, initial tests
+suggest that the ‘scd4x’ board has 1.5°F lower temperature and around 2%
+higher humidity than the ‘hdc302x’ board.
 
-tmp.py
+# Installing DietPi on the Raspberry Pi
+
+I downloaded DietPi for the ‘Raspberry Pi 1/Zero (1)’, inserted the Pi’s
+SD card into the laptop’s SD slot, and then:
+
 ```
+xzcat ~/Downloads/DietPi_RPi-ARMv6-Bookworm.img.xz | sudo dd of=/dev/mmcblk0
 ```
 
-tmp2.py
+Then I mounted the boot partition, and edited `dietpi.txt` to set:
+
 ```
+AUTO_SETUP_NET_HOSTNAME=example
+AUTO_SETUP_SSH_PUBKEY=ssh-rsa ...
+AUTO_SETUP_AUTOMATED=1
+SOFTWARE_DISABLE_SSH_PASSWORD_LOGINS=1
 ```
 
-~~ trying: sudo chmod a+rw /dev/hidraw*  ~~
-still can’t see the board on the Pi,
-even with BLINKA_FORCEBOARD=GENERIC_LINUX_PC
-(/etc/udev/rules.d/99-mcp2221.rules on laptop)
+And I made one change to `config.txt`:
 
-Going through the MCP2221 Adafruit tutorial, this package is missing, so:
-sudo apt-get install libudev-dev
-Nope, still no I2C symbol in the `board` module.
+```
+dtparam=i2c_arm=on
+```
 
-Oh, ~~blinka is not installed in the venv~~ on the Pi? So:
-pip3 install adafruit-blinka
-Requirement already satisfied: adafruit-blinka in ./env/lib/python3.11/site-packages (8.50.0)
-Huh? They why didn’t ‘freeze’ print it? Aww, drat, it’s capitalized. ‘Blinka’
-Thus: pip freeze|grep -i blink  <--- needed the `-i`. False alarm.
+Alas — after inserting the SD card into the Raspberry Pi and booting it,
+I never saw a new SSH server appear on the network.  So I hooked the Pi
+up to a monitor and keyboard and saw that it was waiting at its initial
+`Login:` prompt, which apparently can’t be skipped to make the install
+truly headless.  (I guess that’s why the comment in `dietpi.txt` says
+‘On first login’, a subtlety I missed on first reading.)  So I logged in
+as `root`, and the automated install then proceeded.
 
-Oh: export BLINKA_MCP2221=1
-DRAT, thought that would be it. Still no I2C.
+Then, I added the new device’s IP address to my `~/.ssh/config`:
 
-Trying out HID commands I’ve just put at the top. OSError!
-So let’s try:
-### sudo chmod a+rw /dev/hidraw*
+```
+Host example
+  Hostname 192.168.1.38
+  User dietpi
+```
 
-Installed strace and looking at why OSError. Can’t RW any of these devices:
-$ ls -al /dev/bus/usb/001/005
-crw-rw-r-- 1 root root 189, 4 Dec  3 12:54 /dev/bus/usb/001/005
-Maybe I really need the rule? So, did the cat from laptops .sh. Then:
-udevadm control --reload-rules && udevadm trigger
+And then I could run the setup script in this repository:
 
-OH WOW LOOK AT THAT! ‘rw’!
-$ ls -al /dev/bus/usb/001/005
-crw-rw-rw- 1 root plugdev 189, 4 Dec  3 15:37 /dev/bus/usb/001/005
+```
+$ ./setup-dietpi.sh example
+```
 
-Still can’t use the board though.
-sudo adduser dietpi plugdev
-export BLINKA_FORCEBOARD=GENERIC_LINUX_PC
-export BLINKA_MCP2221=1
-(env) dietpi@DietPi:~$ rm -f trace.out && strace -o trace.out python tmp2.py
+After SSH’ing into the Raspberry Pi, I could successfully run:
 
-lsmod | grep hid_mcp2221
-^ doesn’t show anything, good
+    ./env/bin/python recorder.py
 
-still getting error on tmp2.py
-reading debugging FAQ. let’s try
-export BLINKA_MCP2221_RESET_DELAY=0.5
-still no I2C.
+— and see the I2C devices detected successfully.  So I finished the
+setup with:
 
-okay, this is taking too much time. time for a focused deep dive.
-  AttributeError: module 'board' has no attribute 'I2C'
-where does board get its symbols?
-board.py does:
-import sys
-import adafruit_platformdetect.constants.boards as ap_board
-from adafruit_blinka.agnostic import board_id, detector
-...
-if board_id == ap_board.FEATHER_HUZZAH:
-...
-elif board_id == ap_board.GENERIC_LINUX_PC:
-    from adafruit_blinka.board.generic_linux_pc import *
+    crontab crontab
 
-Do I know we’re making it to that line? YES.
-The module is empty of definitions; where does it get symbols from?
-not platformdetec/board.py; that does almost nothing in __init__()
-and .id is just has a property that reads my environ var and returns.
+— and the environment logging has been running ever since.
 
-I have no idea! Drat. This is what’s terrible about magic in Python.
+# Special maneuvers for a small SD card
 
-Another approach: where is BLINKA_MCP2221 detected?
-a 2221 ~/.v/home-sensors
-No response? Wat?! GAH. It’s because of ~/.gitignore in my homedir. Gah.
-Okay, `ag -U’. So it’s in adafruit_platformdetect/chip.py
+For one of my Raspberry Pi’s, I could only find a 2GB SD card, which
+just barely fit the initial DietPi image.  So I proceeded only a little
+way into the setup before getting a shell prompt and asking how I could
+free up space on the filesystem to install Python.  This listed the
+installed packages by installed footprint:
 
-Tweaking tmp2.py:
-import board
-print(board.board_id)
-print('Board:', board.detector.board.id)
-print('Chip:', board.detector.chip.id)
+    dpkg-query -W -f='${Installed-Size;8}  ${Package}\n' | sort -n
 
-Gives:
-GENERIC_LINUX_PC
-Board: GENERIC_LINUX_PC
-Chip: MCP2221
+A very large amount of space was taken up with Wifi firmware, which I
+didn’t need since my old Raspberry Pi’s don’t even have Wifi.  Thus:
 
-So how is I2C supposed to get inside board.py?
-From:
-from adafruit_blinka.board.generic_linux_pc import *
+    apt purge firmware-atheros firmware-brcm80211 firmware-iwlwifi wpasupplicant
 
-So what populates generic_linux_pc?
-Can’t find any trace in the code. Hmm. A Web search
-for the error message
-AttributeError: module 'board' has no attribute 'I2C'
-finds:
-https://github.com/adafruit/Adafruit_Blinka/pull/95/files
-where it just lives literally in board.py.
+The result was that free space on the filesystem shown by `df -h /`
+increased from 56M to 226M, which was enough to proceed with setup and
+get the environment recorder running.  After installing Python and other
+dependencies, free space was still a comfortable 152M.
 
-Hey, it’s in my
-/home/brandon/.v/home-sensors/lib/python3.12/site-packages/board.py
-here on my laptop. Ah! I was expecting it to come from `import *`!
-But I was wrong! Near the bottom of the file, there’s:
+For my own future reference, these two commands were helpful as I did
+the investigation that resulted in the above `purge` command:
 
-if "SCL" in locals() and "SDA" in locals():
-    def I2C():
-        """The singleton I2C interface"""
-        import busio
-        return busio.I2C(SCL, SDA)
-
-So how do SCL and SDA get defined? They are from the `import *`!
-For example, look at all the symbols on the Pi:
-.../adafruit_blinka/board/raspberrypi/raspi_1b_rev2.py
-
-So the problem is just that the symbol is missing.
-Oh - also, what would those two values be. Hmm.
-
-import busio
-        return busio.I2C(SCL, SDA)
-
-On the pi, they are
-SDA = pin.D2
-SCL = pin.D3
-
-So why do they work on my laptop?
-Okay, FINE. I’m going to go upstairs, power down the Pi, and put the USB
-module back in my laptop and confirm that it really works, and if so, HOW.
-Maybe I just wasted an hour because I was too lazy to walk upstairs.
-Running tmp2.py on my laptop:
-AttributeError: module 'board' has no attribute 'I2C'
-Then:
-export BLINKA_MCP2221=1
-Result:
-It ran successfully!
-So I’m not misled: even on a Linux laptop, I2C should get set.
-So let’s dive in and find out how it gets set!
-It looks like SCL and SDA are set in board.py. From `generic_linux_pc` module?
-OH WOW, generic_linux_pc isn’t getting used! It’s the wrong board setting!
-OH MY GOSH, I didn’t pay attention to tmp2’s output just then. It says:
-MICROCHIP_MCP2221
-
-That’s the problem, then: I selected the wrong board name. I had assumed that
-I magically knew which board it was using on my laptop.
-
-So:
-python recorder.py shows all None.
-
-export BLINKA_MCP2221=1
-has no ... WAIT, it was detected?! Wow. Why didn’t that work before?!
-
-So it works. I can record data using DietPi!
-
-What firmware is loaded during startup on my Pi? Let’s add a kernel
-parameter to /boot/cmdline.txt (CONFIG_DYNAMIC_DEBUG? CONFIG_IKCONFIG_PROC?)
-
-... dyndbg="file drivers/base/firmware_class.c +fmp"
-
-dmesg | grep firmware_class
-dmesg | grep fw_get_filesystem_firmware
+    apt-cache rdepends --installed packagename
+    apt autoremove
