@@ -3,6 +3,7 @@
 # Connect to the Raspberry Pi and install prerequisites.
 
 set -e
+cd "$(readlink -f $(dirname "${BASH_SOURCE[0]}"))"
 
 if [ -z "$1" ]
 then
@@ -10,41 +11,33 @@ then
     exit 2
 fi
 
-scp crontab recorder.py requirements.txt $1:
+script='
+# INSTALL SCRIPT TO RUN ON RASPBERRY PI
 
-# install less
-# dpkg-query -W -f='${Installed-Size;8}  ${Package}\n' | sort -n
-# apt-cache rdepends --installed packagename  # or apt rdepends?
+set -e
 
-# apt purge firmware-atheros firmware-brcm80211 firmware-iwlwifi wpasupplicant
-# After this operation, 177 MB disk space will be freed.
-# apt autoremove
+sudo apt-get install -y -y \
+        python3-pip python3-setuptools python3-smbus python3-venv \
+        i2c-tools libgpiod-dev python3-libgpiod
 
-# After apt install of python stuff from other script:
-# Recommended packages:
-#   build-essential python3-dev
+sudo adduser dietpi i2c
 
-0:05 $ tar cf - crontab recorder.py requirements.txt | ssh pi2 tar xf -
+if [ ! -d env ]
+then
+  python3 -m venv env --system-site-packages
+fi
 
+source env/bin/activate
+pip3 install -r requirements.txt
 
+crontab crontab
 
-"""
-root@DietPi:~# df -h /
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/root       808M  696M   56M  93% /
+# END OF INSTALL SCRIPT
+'
 
-After apt maneuvers above:
-
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/root       808M  525M  226M  70% /
-
-After pip installs:
-/dev/root       808M  595M  157M  80% /
-
-
-sudo raspi-config nonint do_i2c 0
-^ doesn't work; but maybe not needed after initial setup?
-"""
-
-# ? firmware-misc-nonfree
-# apt install rsync
+for hostname in "$@"
+do
+    ssh $hostname sudo apt-get install -y -y less rsync
+    ./push $hostname
+    echo "$script" | ssh $hostname
+done
