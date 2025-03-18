@@ -49,10 +49,26 @@ t = [i + zone for i in t]
 
 choice = sys.argv[2]
 
+one_minute = timedelta(minutes=1)
+
+def segments(t):  # do this in talk? orig, built two lists for each seg
+    i = 0
+    tprev = t[0]
+    for j, ti in enumerate(t):
+        if ti - tprev > one_minute:
+            yield i, j
+            i = j
+        tprev = ti
+    yield i, j
+
 if choice == 'th':
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t, y=data['F'], name='Temperature (°F)'))
-    fig.add_trace(go.Scatter(x=t, y=data['H%'], name='Humidity (%)'))
+    add = fig.add_trace
+    for i, j in segments(t):
+        print(i,j)
+        tij = t[i:j]
+        add(go.Scatter(x=tij, y=data['F'][i:j], name='Temperature (°F)'))
+        add(go.Scatter(x=tij, y=data['H%'][i:j], name='Humidity (%)'))
     fig.show()
 
 elif choice == 'co2':
