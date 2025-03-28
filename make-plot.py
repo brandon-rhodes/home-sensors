@@ -8,6 +8,7 @@
 # ]
 # ///
 
+import argparse
 import plotly.graph_objects as go
 import numpy as np
 import sys
@@ -16,10 +17,13 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from glob import glob
 
-source = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('source', choices=('attic', 'basement', 'office'))
+parser.add_argument('data', choices=('th', 'co2', 'voc'))
+args = parser.parse_args()
 
 #pattern = 'data-basement/data-*'
-pattern = f'data-{source}/data-*'
+pattern = f'data-{args.source}/data-*'
 
 t = []
 data = defaultdict(list)
@@ -47,8 +51,6 @@ data = dict(data)
 zone = timedelta(hours=-5)
 t = [i + zone for i in t]
 
-choice = sys.argv[2]
-
 one_minute = timedelta(minutes=1)
 
 def segments(t):  # do this in talk? orig, built two lists for each seg
@@ -61,23 +63,24 @@ def segments(t):  # do this in talk? orig, built two lists for each seg
         tprev = ti
     yield i, j
 
-if choice == 'th':
+if args.data == 'th':
     fig = go.Figure()
     add = fig.add_trace
     for i, j in segments(t):
-        print(i,j)
         tij = t[i:j]
-        add(go.Scatter(x=tij, y=data['F'][i:j], name='Temperature (°F)'))
-        add(go.Scatter(x=tij, y=data['H%'][i:j], name='Humidity (%)'))
+        add(go.Scatter(x=tij, y=data['F'][i:j], line_color='blue',
+                       name='Temperature (°F)'))
+        add(go.Scatter(x=tij, y=data['H%'][i:j], line_color='red',
+                       name='Humidity (%)'))
     fig.show()
 
-elif choice == 'co2':
+elif args.data == 'co2':
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=t, y=data['CO2_ppm'], name='CO2 (ppm)'))
     fig.show()
 
-elif choice == 'voc':
+elif args.data == 'voc':
 
     clip_upper = min
     data = [clip_upper(33e3 - datum, 5e3) for datum in data['voc_raw']]
