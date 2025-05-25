@@ -37,6 +37,10 @@ for path in sorted(glob(pattern)):
         if 'F=-49.0' in line:
             continue
 
+        if line < '2025-03-11 05':
+            continue
+        if line > '2025-04-01 05':
+            continue
         dt = datetime.strptime(line[:16], '%Y-%m-%d %H:%M')
         t.append(dt)
 
@@ -69,9 +73,11 @@ if args.data == 'th':
     for i, j in segments(t):
         tij = t[i:j]
         add(go.Scatter(x=tij, y=data['F'][i:j], line_color='blue',
-                       name='Temperature (°F)'))
-        add(go.Scatter(x=tij, y=data['H%'][i:j], line_color='red',
-                       name='Humidity (%)'))
+                       name='°F'))
+                       #name='Temperature (°F)'))
+        # add(go.Scatter(x=tij, y=data['H%'][i:j], line_color='red',
+        #                name='%H'))
+        #                #name='Humidity (%)'))
     fig.show()
 
 elif args.data == 'co2':
