@@ -37,10 +37,10 @@ for path in sorted(glob(pattern)):
         if 'F=-49.0' in line:
             continue
 
-        if line < '2025-03-11 05':
-            continue
-        if line > '2025-04-01 05':
-            continue
+        # if line < '2025-03-11 05':
+        #     continue
+        # if line > '2025-04-01 05':
+        #     continue
         dt = datetime.strptime(line[:16], '%Y-%m-%d %H:%M')
         t.append(dt)
 
