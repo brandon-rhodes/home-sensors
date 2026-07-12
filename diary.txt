@@ -1,0 +1,48 @@
+
+======== 2026 July 12 Sunday ========
+
+Updated both daemons to use utcnow() and restarted them.
+
+======== 2026 June 12 Friday ========
+
+Q: do they agree on power outage?
+
+
+how long was power outage
+
+office:
+data-2026-06-10 is full
+data-2026-06-11 has some time missing
+data-2026-06-12 has lots missing
+
+basement:
+data-2026-06-09 is full
+data-2026-06-10 has missing
+data-2026-06-11 has missing
+
+
+After an extended power outage,
+
+laptop:   Fri Jun 12 03:38:29 PM EDT 2026
+office:   Fri Jun 12 04:35:17 BST 2026
+basement: Fri Jun 12 05:03:14 BST 2026
+
+tried sudo dietpi-update on basement
+which happens to do
+[  OK  ] DietPi-TimeSync | systemctl start systemd-timesyncd
+[  OK  ] DietPi-TimeSync | Time sync completed
+[  OK  ] DietPi-TimeSync | systemctl stop systemd-timesyncd
+
+and thus:
+
+dietpi@basement:~$ date
+Fri Jun 12 21:45:39 BST 2026
+
+sudo dietpi-config
+chose UTC
+
+under Advanced Options
+
+│              Time sync mode : [Boot + Daily]                                 │
+changed to:
+│              Time sync mode : [Daemon + Drift]                               │
