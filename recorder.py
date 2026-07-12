@@ -30,7 +30,7 @@ sys.stderr = unbuffered(sys.stderr)
 
 fmt = "%Y-%m-%d %H:%M:%S"
 zero = timedelta()
-print('Home Sensor Recorder starting up at', datetime.now().strftime(fmt))
+print('Home Sensor Recorder starting up at', datetime.utcnow().strftime(fmt))
 
 if subprocess.call('lsusb | grep -q MCP2221', shell=True) == 0:
     print('MCP2221 detected on USB bus')
@@ -80,7 +80,7 @@ else:
     delay = timedelta(minutes=1)
 
 def main():
-    dt = datetime.now()
+    dt = datetime.utcnow()
     dt = dt.replace(second=0, microsecond=0)
     dt += delay * 2  # give sensors at least one full minute to warm up
     while True:
@@ -90,7 +90,7 @@ def main():
         dt += delay
 
 def wait_until(dt):
-    now = datetime.now()
+    now = datetime.utcnow()
     delay = dt - now
     if delay > zero:
         time.sleep(delay.total_seconds())
